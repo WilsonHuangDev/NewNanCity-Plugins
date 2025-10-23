@@ -276,7 +276,22 @@ class ExtendedCommands(val plugin: BetterCommandBlockPlugin) {
         val commandParts = command.split(" ")
         if (commandParts.isNotEmpty()) {
             val baseCommand = commandParts[0].lowercase()
-            if (plugin.securityModule.isBlocked(baseCommand)) {
+            // 优先使用新的 firewallModule，如果未初始化则回退到旧的 securityModule（若存在）
+            val isBlocked = try {
+                !plugin.firewallModule.isCommandSafe(baseCommand)
+            } catch (e: UninitializedPropertyAccessException) {
+                // firewallModule 未初始化，尝试旧的 securityModule（兼容旧代码）
+                runCatching {
+                    // 通过反射尝试访问旧字段（如果存在）
+                    val field = plugin::class.java.getDeclaredField("securityModule")
+                    field.isAccessible = true
+                    val sec = field.get(plugin)
+                    val method = sec::class.java.getMethod("isBlocked", String::class.java)
+                    method.invoke(sec, baseCommand) as? Boolean ?: false
+                }.getOrDefault(false)
+            }
+
+            if (isBlocked) {
                 plugin.messager.printf(sender, LanguageKeys.Commands.Execute.BLOCKED_COMMAND, baseCommand)
                 return
             }

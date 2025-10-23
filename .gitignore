@@ -108,7 +108,6 @@ $RECYCLE.BIN/
 
 .gradle
 build/
-cache/
 bin/
 wiki/
 
